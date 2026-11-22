@@ -1,0 +1,107 @@
+# River delta model: surface processes and stratigraphy
+
+A cellular model of river delta evolution, written in Fortran by Michael J. Puma in 2006–2007, revised in 2026, and now also available as a tested Python package. It is described in the preprint
+
+> Puma, M.J., Muneepeerakul, R., Paola, C., Rinaldo, A., and Rodriguez-Iturbe, I., *On the connections between surficial processes and stratigraphy in river deltas*, arXiv:1606.04558, https://arxiv.org/abs/1606.04558
+
+A revised version of the paper, with simulations rerun using the code in this repository, is in preparation. This is work in progress.
+
+The model represents a delta plain as a grid of cells. Water and sediment enter at a single source and are routed through a channel; the channel aggrades, levees build, and when the channel becomes unstable it avulses and a new path is activated. Channel dynamics use a simple cellular approach that includes backwater effects, which matter in low-gradient deltas. Deposits are tracked in three dimensions, so the model records stratigraphy (deposit thickness, sediment type and age at depth) alongside the surface. The paper uses it to study how avulsion statistics change with distance from the source, how long channels occupy each part of the delta (channel residence time), and how these surface statistics are written into the stratigraphy.
+
+The repository has three parts:
+
+- `fortran/`: the May 2007 program, revised in 2026 to correct nine errors (listed below) found while translating it to Python.
+- `src/deltamodel/`: the Python version. It reproduces `fortran/` exactly.
+- `paper/`: the simulations and figures for the revised paper.
+
+![Bed elevation and avulsion frequency after a 710-year run](assets/delta_710yr.png)
+
+*A 710-effective-year run (`examples/plot_delta.py`). Left: the bed after the run, with the active channel. Right: avulsions after the 110-year spin-up, by distance from the source.*
+
+## Python package
+
+```sh
+pip install -e .            # needs numpy and numba; add [test] for pytest, [examples] for matplotlib
+```
+
+```python
+from deltamodel import Params, run
+
+p = Params(tmax=100.0, teq=20.0)       # defaults are the 2007 run parameters (tmax=710, teq=110)
+res = run(p, seed=1)
+print(res.num_avulsions)
+res.eta, res.levee, res.channel        # bed and levee elevation, final channel
+res.avulsions                          # time, x and y of each avulsion
+res.visit_mean, res.return_mean        # channel residence time and time between visits, per cell
+res.strat_thickness, res.strat_type, res.strat_time   # 3-D stratigraphy
+```
+
+`deltamodel.history` rebuilds the channel path after every avulsion, and from it every channel visit to every cell. `run(..., stratigraphy=False)` skips the stratigraphy record, which does not affect the bed, to save memory on large domains. A 710-year run takes about five minutes on one core.
+
+`python -m pytest tests` runs the checks (about 40 seconds): the Python model against a stored run of `fortran/`, the mass balance of the stratigraphy, and the channel history.
+
+## Fortran program
+
+```sh
+sh fortran/build.sh                    # gfortran
+mkdir run && cd run && ../fortran/delta
+```
+
+A run covers 710 effective years with a maximum time step of 0.0001 effective years and takes about six minutes on one core. The program writes about 50 text files to the working directory, among them:
+
+| File | Contents |
+|---|---|
+| `etaout.txt`, `levout.txt` | Bed and levee elevation on the grid, every effective year |
+| `Hout.txt`, `Havg.txt` | Flow depth, and its time average |
+| `Qsout.txt` | Sediment flux |
+| `avul_out.txt` | Avulsions: time and position |
+| `visit*.txt`, `visitnum*.txt`, `Tv_series*.txt` | Channel visit durations, counts and times between visits |
+| `strat{2,5,10,20,25,30,40,50}.txt`, `sedtyp*.txt`, `sedtim*.txt` | Stratigraphy of cross-sections at grid positions j = 2 to 50: deposit thickness, sediment type and deposition time |
+
+With `i_etaflag = 1` the program reads the initial bed from `eta_init.txt` instead of drawing it at random.
+
+## Validation
+
+`fortran/` and the Python package were compared on the same initial bed (`tests/data/eta_init.txt.gz`):
+
+- **30-year run** (stored in `tests/data/`, checked by the tests): the same 134 avulsions at the same times and places; bed, levee, stratigraphy layer counts, channel deposit thickness and mean residence time identical to the last bit.
+- **710-year run** (bounds-checked Fortran build): the same 3,801 avulsions; bed, levee, layer counts, channel deposit thickness and mean residence time identical to the last bit.
+
+Every column's stratigraphy adds up to the bed elevation plus the subsidence applied (14.2 m over 710 years) to within 2 × 10⁻⁸ m.
+
+## Corrections made in 2026
+
+The Python translation was first checked line by line against the 2007 program, which it reproduced exactly. That comparison turned up the following errors, corrected in both versions. Each is marked `Correction N (2026)` in `fortran/` and `_fix N` in `src/deltamodel/_kernel.py`.
+
+1. **Sediment flux when the bed is held at zero.** When erosion would take a cell below zero elevation, the flux passed downstream is recomputed from the Exner equation, but the inversion omitted the factor 1/(1 − 2 a_u). With full upwinding (a_u = 1) the flux had the wrong sign.
+2. **Slope of flat reaches of a new channel.** A reach that would be flat or reversed is given the slope `S_incise`, but the bed drop used the cell length of a direction left over from another step, not of the step being made.
+3. **Length in the avulsion criterion.** The criterion compares the slope to the lowest free neighbour with the slope along the channel. The channel slope used the length to whichever active neighbour `slope5` found last, which need not be the next channel cell (a diagonal step has length √2·a).
+4. **Stratigraphy at the end of the run.** Deposition since the last avulsion was never added, and the summary of channel and overbank deposits looped over as many layers as there were avulsions rather than the layers each column has.
+5. **Initial incision recorded as deposition.** After the first channel was cut into the bed, the reference elevation for the next stratigraphy update was not reset, so the cut was later recorded as negative deposition.
+6. **Backwater corrector.** The predictor–corrector for flow depth used the friction coefficient from the old depth in the corrector step instead of the predicted depth.
+7. **Channel cells with no free neighbour.** When all five neighbours of a channel cell are already channel or outside the grid, `maxloc` still returns a direction. The avulsion test then used that blocked cell (outside the array at the edge of the grid), and a new channel path would step into it. The program no longer tests for an avulsion from such a cell, and a new path continues straight downstream.
+8. **Erosion below the initial deposit.** When erosion removed every layer above the initial deposit, the remainder was dropped, so the stratigraphic column no longer added up to the bed elevation.
+9. **Channel incision after an avulsion.** Cutting the new channel removed a full channel depth from the stratigraphy instead of the thickness actually cut.
+
+Corrections 4, 5, 8 and 9 concern only the record of the stratigraphy, not the evolution of the bed; before them, the top of a stratigraphic column could differ from the bed by several metres.
+
+Also changed, without effect on the results:
+
+- All constants are double precision; several were written as single-precision literals (`0.0001`, `0.4`, …).
+- The two routines specific to the Silverfrost FTN95 compiler (`date_time_seed@`, `random()`) are replaced by standard Fortran (`random_seed`, `random_number`).
+- `bed_elev.f95` used unit 12, which is also `levout.txt`.
+- The scour check no longer reads `eta_act(0)`, and a reset loop cleared the wrong array element.
+- The visit-time series hold 100 visits per cell and could be written past their end; later visits are still counted but not stored. The stratigraphy output now writes every layer.
+
+## Revised paper
+
+`paper/` reruns the simulations of the paper and makes its figures:
+
+```sh
+python paper/run_paper.py               # the 5 x 7 km delta, and a 10 x 14 km delta with four times the sediment feed
+python paper/figures.py                 # Figures 2-9, and every number quoted in the text in paper/figures/results.json
+```
+
+## License
+
+MIT. See `LICENSE`.

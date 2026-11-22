@@ -1,0 +1,27 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite the paper below."
+title: "River delta model: surface processes and stratigraphy (Fortran 2006-2007, revised 2026, and Python)"
+license: MIT
+authors:
+  - family-names: Puma
+    given-names: Michael J.
+preferred-citation:
+  type: unpublished
+  title: "On the connections between surficial processes and stratigraphy in river deltas"
+  authors:
+    - family-names: Puma
+      given-names: Michael J.
+    - family-names: Muneepeerakul
+      given-names: Rachata
+    - family-names: Paola
+      given-names: Chris
+    - family-names: Rinaldo
+      given-names: Andrea
+    - family-names: Rodriguez-Iturbe
+      given-names: Ignacio
+  year: 2016
+  notes: "Preprint; revised version in preparation."
+  url: "https://arxiv.org/abs/1606.04558"
+  identifiers:
+    - type: other
+      value: "arXiv:1606.04558"

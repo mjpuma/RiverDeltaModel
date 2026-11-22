@@ -1,0 +1,22 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "deltamodel"
+version = "0.1.0"
+description = "Cellular river delta model with backwater hydraulics, avulsion and stratigraphy (Python port of the 2006-2007 Fortran behind Puma et al., arXiv:1606.04558)"
+readme = "README.md"
+license = {text = "MIT"}
+requires-python = ">=3.9"
+dependencies = ["numpy", "numba"]
+
+[project.optional-dependencies]
+test = ["pytest"]
+examples = ["matplotlib"]
+
+[project.urls]
+Homepage = "https://github.com/mjpuma/RiverDeltaModel"
+
+[tool.setuptools.packages.find]
+where = ["src"]

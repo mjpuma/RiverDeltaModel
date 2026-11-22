@@ -1,0 +1,14 @@
+run/
+*.o
+__pycache__/
+*.egg-info/
+.pytest_cache/
+tests/fortran_build/
+*.png
+!assets/*.png
+paper/runs/
+paper/manuscript/build/
+paper/manuscript/
+!paper/figures/*.png
+fortran/delta
+tests/fortran_build/
