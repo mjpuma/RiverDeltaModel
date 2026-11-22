@@ -132,6 +132,8 @@ python paper/signatures/null_model.py RUN.pkl OUT.pkl [seed] [uniform]   # rando
 python paper/signatures/figures.py                            # figures and results.json in paper/signatures/figures/
 ```
 
+`paper/signatures/real_deltas.py` repeats the test on nine river-dominated deltas: it builds each delta's outline from its mapped channel network and shoreline, grows random networks inside it, and compares their Hack-like scaling with the real network's. It needs the DIDNT dataset (Hariharan et al. 2022) and the supplementary data of Dong et al. (2026), which are not included here; see the module's docstring.
+
 The null models keep the model's avulsion times but send each new channel along a directed random walk to the shoreline, either from the model's avulsion sites or from sites chosen uniformly along the channel. `paper/signatures/metrics.py` computes the statistics: the residence-time exponent, Hack-like scaling (Dong et al. 2026), channel overlap and reworking (Wickert et al. 2013), and the compensation index (Straub et al. 2009).
 
 ## License
