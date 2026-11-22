@@ -18,9 +18,11 @@ from ._kernel import run_kernel
 class Params:
     """Model parameters. Defaults are those of the May 2007 code. Lengths in m, time in
     effective years unless noted."""
-    xmax: int = 71                 # cells across the delta
-    ymax: int = 50                 # cells from source to shoreline (the grid has ymax + 1 rows)
-    imidx: int = 36                # source column
+    domain: str = "rectangle"      # "rectangle" (the 2007 model) or "semicircle"
+    xmax: int = 71                 # rectangle: cells across the delta
+    ymax: int = 50                 # cells from source to shoreline (rectangle: the grid has
+                                   # ymax + 1 rows; semicircle: the radius L in cells)
+    imidx: int = 36                # rectangle: source column
     a: float = 100.0               # cell size, m
     Qw: float = 20.0               # water discharge, m3/s
     Qs: float = 0.0025             # sediment feed, m3/s
@@ -80,9 +82,38 @@ def _consts(p: Params):
     return c
 
 
+def geometry(p: Params):
+    """Grid of the run: (xmax, ymax, imidx, active, terminal), with active and terminal
+    padded (index 0 and the last indices unused, as in the kernel).
+
+    rectangle : the 2007 domain, xmax x (ymax + 1) cells; side walls are no-flow and the
+                channel ends in the last row (the shoreline).
+    semicircle: land within radius L = ymax cells of the source, which sits on the
+                straight (landward) edge; the channel ends on the shoreline ring of cells
+                at distance L to L + 1.5 cells, which it reaches by any route."""
+    if p.domain == "rectangle":
+        xmax, ymax, imidx = p.xmax, p.ymax, p.imidx
+        active = np.zeros((xmax + 2, ymax + 3), dtype=np.int32)
+        terminal = np.zeros_like(active)
+        active[1:xmax + 1, 1:ymax + 2] = 1
+        terminal[1:xmax + 1, ymax + 1] = 1
+    elif p.domain == "semicircle":
+        R = p.ymax
+        xmax, ymax, imidx = 2 * R + 5, R + 2, R + 3
+        ii, jj = np.meshgrid(np.arange(xmax + 2), np.arange(ymax + 3), indexing="ij")
+        r = np.hypot(ii - imidx, jj - 1)
+        inside = (ii >= 1) & (ii <= xmax) & (jj >= 1) & (jj <= ymax + 1)
+        active = (inside & (r < R + 1.5)).astype(np.int32)
+        terminal = (active.astype(bool) & (r >= R)).astype(np.int32)
+    else:
+        raise ValueError(f"unknown domain {p.domain!r}")
+    return xmax, ymax, imidx, active, terminal
+
+
 def initial_bed(p: Params = None, seed=None, rng=None, roughness=1.0):
     """Initial bed: a plane at the equilibrium slope with random roughness of +-0.5 cell
-    drop, as in the Fortran (i_etaflag = 0). Returns an (xmax, ymax + 1) array.
+    drop, as in the Fortran (i_etaflag = 0); in the semicircle the plane slopes radially
+    from the source. Returns an (xmax, ymax + 1) array of the run's grid.
 
     roughness scales the random part. On domains much longer than the default 50 cells,
     the full roughness can leave reversed slopes in the first channel once it is cut to
@@ -92,12 +123,17 @@ def initial_bed(p: Params = None, seed=None, rng=None, roughness=1.0):
     rng = rng or np.random.default_rng(seed)
     S = c["S_equil"]
     a = c["a"]
+    xmax, ymax, imidx, _, _ = geometry(p)
     Lb = a * p.ymax
-    eta = np.empty((p.xmax, p.ymax + 1))
-    for i in range(p.xmax):
-        for j in range(p.ymax + 1):
+    eta = np.empty((xmax, ymax + 1))
+    for i in range(xmax):
+        for j in range(ymax + 1):
             temp = rng.random()
-            eta[i, j] = c["base_init"] + S * Lb - S * a * ((j + 1) - 1.0) + roughness * (S * a * (temp - 0.5))
+            if p.domain == "rectangle":
+                eta[i, j] = c["base_init"] + S * Lb - S * a * ((j + 1) - 1.0) + roughness * (S * a * (temp - 0.5))
+            else:
+                r = np.hypot((i + 1) - imidx, j)
+                eta[i, j] = c["base_init"] + S * a * (p.ymax - r) + roughness * (S * a * (temp - 0.5))
     return eta
 
 
@@ -129,6 +165,9 @@ class Result:
     qs_series: np.ndarray          # (n, 8) sediment flux in the channel at rows 2,5,10,20,25,30,40,50
     avulsion_index: np.ndarray = None   # position along the old channel (1 = source) of each avulsion
     path_log: np.ndarray = None    # (event, i, j), 1-based: cells of each new channel path (event -1: initial)
+    land: np.ndarray = None        # cells of the delta plain (excludes the shoreline cells)
+    shoreline: np.ndarray = None   # cells where the channel ends
+    source: tuple = None           # (i, j) of the source cell, 0-based
     snapshots: dict = field(default_factory=dict)   # 'eta','levee','qs','H','channel' (n, xmax, ymax+1), 't'
 
     @property
@@ -152,8 +191,11 @@ def run(p: Params = None, eta0=None, seed=None, save_snapshots=False, nvis=100,
     if eta0 is None:
         eta0 = initial_bed(p, seed)
     eta0 = np.ascontiguousarray(eta0, dtype=float)
+    xmax, ymax, imidx, active, terminal = geometry(p)
+    if eta0.shape != (xmax, ymax + 1):
+        raise ValueError(f"eta0 must be {(xmax, ymax + 1)} for this domain")
     out = run_kernel(
-        eta0, p.xmax, p.ymax, p.imidx, c["a"], c["qw0"], c["qs0"], c["B"],
+        eta0, active, terminal, xmax, ymax, imidx, c["a"], c["qw0"], c["qs0"], c["B"],
         c["tmax"], c["teq"], c["dtmax"], c["dtmin"], c["dtredu"], c["dtprint"], c["dtmax"],
         c["dtprint2"], c["dtprint2"], c["dtprint3"], c["dtprint3"], c["I_tavg"], c["sec_yr"],
         c["beta"], c["g"], c["D"], c["R"], c["lam"], c["taustar_c"], c["n"], c["alpha_r"],
@@ -164,7 +206,7 @@ def run(p: Params = None, eta0=None, seed=None, save_snapshots=False, nvis=100,
      visit, vnum, visit2, vnum2, Tv, Tv2, vover, dch, dov, nchl, qout, snap, snap_t, nsnap, avul_ind, hist) = out
     if status != 0:
         raise RuntimeError(f"time step fell below dtmin at t = {t:.6f}")
-    X, Y = p.xmax, p.ymax + 1
+    X, Y = xmax, ymax + 1
     g2 = lambda A: A[1:X + 1, 1:Y + 1].copy()
     res = Result(
         params=p, t=t, eta=g2(eta), levee=g2(levee), channel=g2(latbond),
@@ -176,6 +218,8 @@ def run(p: Params = None, eta0=None, seed=None, save_snapshots=False, nvis=100,
         strat_type=styp[1:X + 1, 1:Y + 1, 1:].copy(), strat_time=stim[1:X + 1, 1:Y + 1, 1:].copy(),
         top_layer=g2(top_lay) - 1, qs_series=qout[1:].copy(),
         avulsion_index=avul_ind, path_log=hist,
+        land=(active[1:X + 1, 1:Y + 1] == 1) & (terminal[1:X + 1, 1:Y + 1] == 0),
+        shoreline=terminal[1:X + 1, 1:Y + 1] == 1, source=(imidx - 1, 0),
     )
     if save_snapshots:
         names = ["eta", "levee", "qs", "H", "channel"]

@@ -67,3 +67,43 @@ def test_stratigraphy_switch_changes_nothing_else():
     b = run(p, eta0=eta0, stratigraphy=False)
     assert np.array_equal(a.avulsions, b.avulsions)
     assert np.array_equal(a.eta, b.eta)
+
+
+@pytest.fixture(scope="module")
+def semi_run():
+    p = Params(domain="semicircle", ymax=20, Qs=0.0025 / (50 * 71) * np.pi * 20 ** 2 / 2,
+               tmax=20.0, teq=2.0)
+    return p, run(p, eta0=initial_bed(p, seed=5), seed=5)
+
+
+def test_semicircle_geometry():
+    from deltamodel import geometry
+    p = Params(domain="semicircle", ymax=20)
+    xmax, ymax, imidx, active, terminal = geometry(p)     # padded, 1-based
+    assert active[imidx, 1] and not terminal[imidx, 1]       # source is on land
+    land = (active == 1) & (terminal == 0)
+    # every land cell lies within L of the source, every shoreline cell at L to L + 1.5
+    i, j = np.nonzero(land)
+    assert np.hypot(i - imidx, j - 1).max() < 20
+    i, j = np.nonzero(terminal == 1)
+    r = np.hypot(i - imidx, j - 1)
+    assert r.min() >= 20 and r.max() < 21.5
+    # the plain is symmetric about the source row
+    a = active[1:xmax + 1]
+    assert np.array_equal(a, a[::-1, :])
+
+
+def test_semicircle_run(semi_run):
+    """Stratigraphy balances, paths stay in the domain and end on the shoreline."""
+    from deltamodel.history import channel_paths
+    p, r = semi_run
+    assert r.num_avulsions >= 3
+    col = np.array([[r.strat_thickness[i, j, :r.top_layer[i, j] + 1].sum()
+                     for j in range(r.eta.shape[1])] for i in range(r.eta.shape[0])])
+    resid = (col - r.eta)[r.land]
+    assert resid.max() - resid.min() < 1e-6
+    for t, path in channel_paths(r):
+        ii = np.array([q[0] for q in path]) - 1
+        jj = np.array([q[1] for q in path]) - 1
+        assert r.land[ii[:-1], jj[:-1]].all()          # every cell but the last is land
+        assert r.shoreline[ii[-1], jj[-1]]             # the path ends on the shoreline

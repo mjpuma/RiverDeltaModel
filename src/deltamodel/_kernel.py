@@ -14,63 +14,32 @@ NEG = -999.0
 
 
 @njit(cache=True)
-def _slope5(i, j, latbond, xmax, eta, L, S):
-    """Slopes to the five downstream/lateral neighbours (SLOPE5). Active cells and cells
-    outside the domain get -999. Also returns the length to the last active neighbour it
-    found (SLOPE5's L_act, not used: see _next_len)."""
-    L_act = -1.0
-    if i != 1 and i != xmax:
-        S[1] = (eta[i, j] - eta[i - 1, j]) / L[1]
-        S[2] = (eta[i, j] - eta[i - 1, j + 1]) / L[2]
-        S[3] = (eta[i, j] - eta[i, j + 1]) / L[3]
-        S[4] = (eta[i, j] - eta[i + 1, j + 1]) / L[4]
-        S[5] = (eta[i, j] - eta[i + 1, j]) / L[5]
-        if latbond[i - 1, j] == 1:
-            S[1] = NEG
-            L_act = L[1]
-        if latbond[i - 1, j + 1] == 1:
-            S[2] = NEG
-            L_act = L[2]
-        if latbond[i, j + 1] == 1:
-            S[3] = NEG
-            L_act = L[3]
-        if latbond[i + 1, j + 1] == 1:
-            S[4] = NEG
-            L_act = L[4]
-        if latbond[i + 1, j] == 1:
-            S[5] = NEG
-            L_act = L[5]
-    elif i == 1:
-        S[1] = NEG
-        S[2] = NEG
-        S[3] = (eta[i, j] - eta[i, j + 1]) / L[3]
-        S[4] = (eta[i, j] - eta[i + 1, j + 1]) / L[4]
-        S[5] = (eta[i, j] - eta[i + 1, j]) / L[5]
-        if latbond[i, j + 1] == 1:
-            S[3] = NEG
-            L_act = L[3]
-        if latbond[i + 1, j + 1] == 1:
-            S[4] = NEG
-            L_act = L[4]
-        if latbond[i + 1, j] == 1:
-            S[5] = NEG
-            L_act = L[5]
-    elif i == xmax:
-        S[1] = (eta[i, j] - eta[i - 1, j]) / L[1]
-        S[2] = (eta[i, j] - eta[i - 1, j + 1]) / L[2]
-        S[3] = (eta[i, j] - eta[i, j + 1]) / L[3]
-        S[4] = NEG
-        S[5] = NEG
-        if latbond[i - 1, j] == 1:
-            S[1] = NEG
-            L_act = L[1]
-        if latbond[i - 1, j + 1] == 1:
-            S[2] = NEG
-            L_act = L[2]
-        if latbond[i, j + 1] == 1:
-            S[3] = NEG
-            L_act = L[3]
-    return L_act
+def _slope5(i, j, latbond, active, eta, L, S, ci, cj):
+    """Slopes to the five downstream/lateral neighbours (SLOPE5). Channel cells and cells
+    outside the domain get -999. Same arithmetic as the Fortran SLOPE5; the domain edge
+    is given by the `active` mask (for the rectangle, the padding around the grid)."""
+    for q in range(1, 6):
+        ni = i + ci[q]
+        nj = j + cj[q]
+        if active[ni, nj] == 1 and latbond[ni, nj] != 1:
+            S[q] = (eta[i, j] - eta[ni, nj]) / L[q]
+        else:
+            S[q] = NEG
+
+
+@njit(cache=True)
+def _boxed_in(i, j, active, eta, ci, cj):
+    """Direction for a path step from a cell whose five neighbours are all channel or
+    outside the domain (_fix 7): straight downstream if that cell is in the domain (always
+    so in the rectangle), otherwise the lowest neighbour in the domain."""
+    if active[i + ci[3], j + cj[3]] == 1:
+        return 3
+    best = -1
+    for q in range(1, 6):
+        if active[i + ci[q], j + cj[q]] == 1:
+            if best < 0 or eta[i + ci[q], j + cj[q]] < eta[i + ci[best], j + cj[best]]:
+                best = q
+    return best
 
 
 @njit(cache=True)
@@ -200,7 +169,7 @@ def _next_len(i, j, i2, j2, L):
 
 
 @njit(cache=True)
-def run_kernel(eta0, xmax, ymax, imidx, a,
+def run_kernel(eta0, active, terminal, xmax, ymax, imidx, a,
                qw_zero0, qs_zero0, B_width0,
                tmax, teq, dtmax, dtmin, dtredu, dtprint, tprint0, tprint2_0, dtprint2,
                tprint3_0, dtprint3, I_tavg, sec_yr, beta, g, D, R, lam, taustar_c, n,
@@ -316,12 +285,12 @@ def run_kernel(eta0, xmax, ymax, imidx, a,
     j_vec[1] = j
     num_act = 1
     while True:
-        if j == ymax + 1:
+        if terminal[i, j] == 1:
             break
-        _slope5(i, j, latbond, xmax, eta, L, S)
+        _slope5(i, j, latbond, active, eta, L, S, ci, cj)
         it0 = _maxloc(S)
         if S[it0] == NEG:
-            it0 = 3                                   # _fix 7: boxed in, go straight downstream
+            it0 = _boxed_in(i, j, active, eta, ci, cj)   # _fix 7: boxed in
         i_old = i
         j_old = j
         i = i + ci[it0]
@@ -514,7 +483,7 @@ def run_kernel(eta0, xmax, ymax, imidx, a,
         # ---- floodplain (SEDPLAIN) and aggradation since the last avulsion ----
         for i in range(1, xmax + 1):
             for j in range(1, ymax + 2):
-                if latbond[i, j] != 1:
+                if latbond[i, j] != 1 and active[i, j] == 1:
                     subside_now = subside * dt / I_tavg
                     delta_agg[i, j] = fine_dep * dt
                     delta_eta[i, j] = delta_agg[i, j] - subside_now
@@ -532,7 +501,7 @@ def run_kernel(eta0, xmax, ymax, imidx, a,
             j = j_vec[k]
             i_act = i_vec[k + 1]
             j_act = j_vec[k + 1]
-            _slope5(i, j, latbond, xmax, eta, L, S)
+            _slope5(i, j, latbond, active, eta, L, S, ci, cj)
             it0 = _maxloc(S)
             L_act = _next_len(i, j, i_act, j_act, L)       # _fix 3
             avul_cond = beta * Hij[i, j]
@@ -581,12 +550,12 @@ def run_kernel(eta0, xmax, ymax, imidx, a,
                 while True:
                     i = i_vec[k]
                     j = j_vec[k]
-                    if j == ymax + 1:
+                    if terminal[i, j] == 1:
                         break
-                    _slope5(i, j, latbond, xmax, eta, L, S)
+                    _slope5(i, j, latbond, active, eta, L, S, ci, cj)
                     it0 = _maxloc(S)
                     if S[it0] == NEG:
-                        it0 = 3                            # _fix 7
+                        it0 = _boxed_in(i, j, active, eta, ci, cj)   # _fix 7
                     i = i + ci[it0]
                     j = j + cj[it0]
                     latbond[i, j] = 1

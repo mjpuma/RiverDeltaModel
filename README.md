@@ -11,8 +11,8 @@ The model represents a delta plain as a grid of cells. Water and sediment enter 
 The repository has three parts:
 
 - `fortran/`: the May 2007 program, revised in 2026 to correct nine errors (listed below) found while translating it to Python.
-- `src/deltamodel/`: the Python version. It reproduces `fortran/` exactly.
-- `paper/`: the simulations and figures for the revised paper.
+- `src/deltamodel/`: the Python version. It reproduces `fortran/` exactly, and adds a semicircular domain with an open shoreline.
+- `paper/`: the simulations, analysis and figures for the revised paper.
 
 ![Bed elevation and avulsion frequency after a 710-year run](assets/delta_710yr.png)
 
@@ -36,9 +36,23 @@ res.visit_mean, res.return_mean        # channel residence time and time between
 res.strat_thickness, res.strat_type, res.strat_time   # 3-D stratigraphy
 ```
 
+### Domain
+
+`Params(domain="rectangle")` (the default) is the 2007 domain: a 5 km × 7 km plain with no-flow side walls and a straight shoreline. The channel is drawn to the walls, which hold about twice their share of channel occupancy and create some of the results in the 2016 preprint. `Params(domain="semicircle", ymax=R)` gives a delta plain of radius `R` cells around a source on the straight landward edge; the channel ends wherever it reaches the shoreline ring, so no boundary steers it. Set `Qs` in proportion to the area of the plain to keep the supply per unit area the same, and start from `initial_bed(p, seed=...)`, which slopes radially.
+
+```python
+import numpy as np
+from deltamodel import Params, run, initial_bed
+
+R = 50
+p = Params(domain="semicircle", ymax=R, Qs=0.0025 / (50 * 71) * np.pi * R**2 / 2)
+res = run(p, eta0=initial_bed(p, seed=1), seed=1)
+res.land, res.shoreline                 # masks of the plain and of the shoreline cells
+```
+
 `deltamodel.history` rebuilds the channel path after every avulsion, and from it every channel visit to every cell. `run(..., stratigraphy=False)` skips the stratigraphy record, which does not affect the bed, to save memory on large domains. A 710-year run takes about five minutes on one core.
 
-`python -m pytest tests` runs the checks (about 40 seconds): the Python model against a stored run of `fortran/`, the mass balance of the stratigraphy, and the channel history.
+`python -m pytest tests` runs the checks (about 40 seconds): the Python model against a stored run of `fortran/`, the mass balance of the stratigraphy, the channel history, and the semicircular domain.
 
 ## Fortran program
 
@@ -98,9 +112,11 @@ Also changed, without effect on the results:
 `paper/` reruns the simulations of the paper and makes its figures:
 
 ```sh
-python paper/run_paper.py               # the 5 x 7 km delta, and a 10 x 14 km delta with four times the sediment feed
-python paper/figures.py                 # Figures 2-9, and every number quoted in the text in paper/figures/results.json
+python paper/run_paper.py               # semicircles of radius 5 and 10 km, and the 5 x 7 and 10 x 14 km rectangles
+python paper/figures.py                 # Figures 2-12, and every number quoted in the text in paper/figures/results.json
 ```
+
+The 5 km runs take 5–10 minutes each and the 10 km runs about an hour; together they need about 2 GB of disk. `paper/analysis.py` computes the statistics: channel residence time, the effect of the side walls, the compensation index of Straub et al. (2009), the reworking and channel-overlap time scales of Wickert et al. (2013), and the Hack-like scaling of distributary networks of Dong et al. (2026).
 
 ## License
 
