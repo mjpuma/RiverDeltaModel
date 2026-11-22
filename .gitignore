@@ -15,3 +15,4 @@ tests/fortran_build/
 paper/signatures/runs/
 paper/signatures/figures/summaries.pkl
 !paper/signatures/figures/*.png
+!paper/signatures/figures/short/*.png
