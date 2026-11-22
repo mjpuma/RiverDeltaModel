@@ -36,7 +36,6 @@ import shapefile
 from pyproj import CRS, Transformer
 from scipy import ndimage
 from skimage.draw import line as draw_line
-from skimage.graph import MCP_Geometric
 
 SQ2 = np.sqrt(2.0)
 NBR = [(-1, -1), (-1, 0), (-1, 1), (0, -1), (0, 1), (1, -1), (1, 0), (1, 1)]
@@ -408,6 +407,144 @@ def tree_network(D, rng, target, max_tries=None, sites="uniform", join=False, ta
     return paths
 
 
+class field:
+    """Temporarily replace the potential that directs the walks: "harmonic" (default) or
+    "radial", the distance from the apex, so that walks head straight out from the apex
+    as in the semicircular model domain. The orientation of the mapped network always
+    uses the harmonic potential."""
+    def __init__(self, D, kind):
+        self.D, self.kind = D, kind
+
+    def __enter__(self):
+        D = self.D
+        self.saved = D.phi
+        if self.kind == "radial":
+            ii, jj = np.indices(D.chan.shape)
+            r = np.hypot(ii - D.apex[0], jj - D.apex[1]).astype(float)
+            D.phi = np.where(D.domain, r / r[D.near_shore].max(), np.nan)
+        return D
+
+    def __exit__(self, *a):
+        self.D.phi = self.saved
+
+
+class _Laplace:
+    """Solver for Laplace's equation on the outline (4-neighbour stencil, no flux across
+    the lateral margins) with values fixed on a changing set of cells."""
+    def __init__(self, D):
+        self.D = D
+        self.cells = np.argwhere(D.domain)
+        n = len(self.cells)
+        idx = -np.ones(D.chan.shape, int)
+        idx[self.cells[:, 0], self.cells[:, 1]] = np.arange(n)
+        self.idx = idx
+        a, b = [], []
+        for di, dj in ((1, 0), (-1, 0), (0, 1), (0, -1)):
+            ni, nj = self.cells[:, 0] + di, self.cells[:, 1] + dj
+            ok = (ni >= 0) & (ni < D.nx) & (nj >= 0) & (nj < D.ny)
+            ok[ok] &= D.domain[ni[ok], nj[ok]]
+            a.append(np.nonzero(ok)[0])
+            b.append(idx[ni[ok], nj[ok]])
+        self.a, self.b = np.concatenate(a), np.concatenate(b)
+        self.deg = np.bincount(self.a, minlength=n).astype(float)
+        # cells in pockets of the outline that do not connect to the shoreline (4-neighbour)
+        lab, _ = ndimage.label(D.domain)
+        keep = np.unique(lab[D.near_shore])
+        self.pocket = ~np.isin(lab[self.cells[:, 0], self.cells[:, 1]], keep[keep > 0])
+        self.x = None
+
+    def solve(self, fixed, val):
+        """fixed, val: arrays over the outline's cells. Returns the solution there."""
+        from scipy.sparse import csr_matrix
+        from scipy.sparse.linalg import spsolve
+        fixed = fixed | self.pocket
+        val = np.where(self.pocket & ~fixed, 0.0, val)
+        free = np.nonzero(~fixed)[0]
+        pos = -np.ones(len(fixed), int)
+        pos[free] = np.arange(free.size)
+        m = ~fixed[self.a]                                   # rows of free cells
+        a, b = self.a[m], self.b[m]
+        fb = fixed[b]
+        rhs = np.bincount(pos[a[fb]], weights=val[b[fb]], minlength=free.size)
+        r = np.r_[pos[a[~fb]], np.arange(free.size)]
+        c = np.r_[pos[b[~fb]], np.arange(free.size)]
+        d = np.r_[-np.ones((~fb).sum()), self.deg[free]]
+        M = csr_matrix((d, (r, c)), shape=(free.size, free.size))
+        u = val.astype(float).copy()
+        u[free] = spsolve(M.tocsc(), rhs)
+        return u
+
+
+def laplace_network(D, rng, target, eta=2.0, gamma=1.0, max_tries=None):
+    """Distributary tree grown in a Laplace field that feels the network.
+
+    As in the moving-boundary model of Ke et al. (2019), flow over the unchannelized delta
+    surface is described by Laplace's equation: here u = 0 on the network, u = 1 in the
+    shoreline zone and no flux across the lateral margins, so u is screened by the
+    existing channels. Each new channel starts at a network cell chosen with probability
+    proportional to the flux of the field out of the network there (the sum of u over its
+    4 neighbours outside the network) to the power eta, excluding cells within two channel
+    widths of the shoreline zone, where the flux reflects the boundary condition; Ke et al. relate the advance of
+    the channel boundary to this flux with exponents of 1.5-2.5. The new channel then
+    follows the field: a walk whose steps are weighted by the gain in u to the power gamma,
+    avoiding the existing network. As for the random trees, it is kept only if it reaches
+    the shoreline more than one apex width from the other outlets, and the field is
+    recomputed after every channel, until the tree has `target` outlets. Returns paths."""
+    lap = _Laplace(D)
+    ci, cj = lap.cells[:, 0], lap.cells[:, 1]
+    first = walk(D, D.apex, rng)
+    if first is None:
+        return []
+    paths = [[D.apex] + first]
+    cells = set(paths[0])
+    outs = [D._along_of(np.array([first[-1]]))[0]]
+    net = np.zeros(D.domain.shape, bool)
+    for c in cells:
+        net[c] = True
+    # new channels do not start within two channel widths of the shoreline zone, where
+    # the flux reflects the boundary condition rather than the network
+    band = ndimage.binary_dilation(D.near_shore, iterations=2 * D.rB + 2)
+    tries, max_tries = 0, max_tries or 50 * target
+    saved = D.phi
+    try:
+        while len(outs) < target and tries < max_tries:
+            tries += 1
+            fixed = (net | D.near_shore)[ci, cj]
+            u = lap.solve(fixed, np.where(net[ci, cj], 0.0, 1.0))
+            U = np.full(D.domain.shape, np.nan)
+            U[ci, cj] = u
+            # flux out of every network cell away from the shoreline zone
+            V = np.where(D.domain & ~net, np.nan_to_num(U), 0.0)
+            F = np.zeros_like(V)
+            F[1:] += V[:-1]; F[:-1] += V[1:]; F[:, 1:] += V[:, :-1]; F[:, :-1] += V[:, 1:]
+            cand = [c for c in cells if not band[c]]
+            if not cand:
+                break
+            flux = np.array([F[c] for c in cand])
+            if flux.sum() <= 0:
+                break
+            w8 = flux ** eta
+            s = cand[rng.choice(len(cand), p=w8 / w8.sum())]
+            D.phi = U ** gamma if gamma != 1.0 else U
+            w = walk(D, s, rng, exclude=cells)
+            D.phi = saved
+            if w is None or len(w) < 2 or not D.near_shore[w[-1]]:
+                continue
+            a = D._along_of(np.array([w[-1]]))[0]
+            if min(abs(a - o) for o in outs) <= D.B:
+                continue
+            outs.append(a)
+            parent = next(p for p in paths if s in p)
+            k = parent.index(s)
+            paths.append(parent[:k + 1] + w)
+            cells.update(w)
+            for c in w:
+                net[c] = True
+    finally:
+        D.phi = saved
+    return paths
+
+
 def avulsion_sequence(D, rng, n_paths):
     """Successive channel paths of a random-walk null in the outline, as for the delta
     model's null with avulsion sites uniform along the channel: each new path leaves the
@@ -519,8 +656,107 @@ def main(names, n_null=40, seed=0):
     return res
 
 
+def spread(D, cells):
+    """How evenly channels fill the outline: the mean distance from the outline to the
+    nearest channel, divided by that for evenly spaced parallel channels of the same total
+    length (a quarter of the spacing, outline area / total length). Near 1 for even
+    spacing, larger when channels cluster and leave parts of the outline far from any
+    channel."""
+    m = np.zeros(D.domain.shape, bool)
+    for c in cells:
+        m[c] = True
+    m &= D.domain
+    dist = ndimage.distance_transform_edt(~m) * D.dx
+    length = m.sum() * D.dx
+    return float(dist[D.domain].mean() / (D.domain.sum() * D.dx ** 2 / (4 * length)))
+
+
+def spread_check(names, out_json, n=4, seed=2):
+    """Hack exponent and spread of the mapped network and of a few networks of each kind."""
+    didnt = os.environ["DIDNT_DIR"]
+    master = pd.read_csv(os.environ["DONG_CSV"])
+    res = json.load(open(out_json)) if os.path.exists(out_json) else {}
+    for name in names:
+        rng = np.random.default_rng([seed, DELTAS.index(name)])
+        D = Delta(name, didnt, master, os.environ["OUTLETS_DIR"])
+        rs = real_succ(D)
+        nb = n_branches(rs)
+        allc = set(rs) | {v for x in rs.values() for v in x}
+        target = n_outlets(D, allc)
+        L, A = hack_points(D, rs)
+        out = {"mapped": [dict(h=tls_h(L, A), spread=spread(D, allc))]}
+        gens = {"dense": ("harmonic", lambda: tree_network(D, rng, 0, join=True, target_branches=nb)),
+                "tree": ("harmonic", lambda: tree_network(D, rng, target)),
+                "tree_radial": ("radial", lambda: tree_network(D, rng, target)),
+                "laplace2": ("harmonic", lambda: laplace_network(D, rng, target, eta=2.0))}
+        for kind, (fld, gen) in gens.items():
+            out[kind] = []
+            with field(D, fld):
+                for k in range(n):
+                    P = gen()
+                    sc = succ_from_paths(P)
+                    L, A = hack_points(D, sc)
+                    if L.size >= 5:
+                        out[kind].append(dict(h=tls_h(L, A), spread=spread(D, {c for p in P for c in p})))
+        res[name] = out
+        print(name, {k: (round(np.median([x["spread"] for x in v]), 2), round(np.median([x["h"] for x in v]), 2))
+                     for k, v in out.items() if v}, flush=True)
+        with open(out_json, "w") as f:
+            json.dump(res, f, default=float)
+    return res
+
+
+def extra_nulls(names, out_json, n_lap=10, n_radial=20, seed=1):
+    """Further comparison networks for the deltas already in real_deltas.json, written to
+    `out_json`: random trees and random networks with loops directed by distance from the
+    apex ("tree_radial", "dense_radial"), and trees grown in a Laplace field that feels the
+    network, with flux exponents 1 and 2 ("laplace1", "laplace2")."""
+    didnt = os.environ["DIDNT_DIR"]
+    master = pd.read_csv(os.environ["DONG_CSV"])
+    outlets_dir = os.environ["OUTLETS_DIR"]
+    res = json.load(open(out_json)) if os.path.exists(out_json) else {}
+    for name in names:
+        rng = np.random.default_rng([seed, DELTAS.index(name)])
+        D = Delta(name, didnt, master, outlets_dir)
+        rs = real_succ(D)
+        nb = n_branches(rs)
+        target = n_outlets(D, set(rs) | {v for x in rs.values() for v in x})
+        gens = {"laplace2": (n_lap, lambda: laplace_network(D, rng, target, eta=2.0)),
+                "laplace1": (n_lap, lambda: laplace_network(D, rng, target, eta=1.0)),
+                "tree_radial": (n_radial, lambda: tree_network(D, rng, target)),
+                "dense_radial": (n_radial // 2, lambda: tree_network(D, rng, 0, join=True, target_branches=nb))}
+        out, pts = {}, {}
+        for kind, (n, gen) in gens.items():
+            out[kind] = []
+            with field(D, "radial" if kind.endswith("radial") else "harmonic"):
+                for k in range(n):
+                    P = gen()
+                    sc = succ_from_paths(P)
+                    L, A = hack_points(D, sc)
+                    rec = dict(n=int(L.size), branches=n_branches(sc),
+                               outlets=n_outlets(D, set(sc) | {v for x in sc.values() for v in x}))
+                    if L.size >= 5:
+                        rec.update(h=tls_h(L, A), **break_fit(L, A, D.B))
+                    out[kind].append(rec)
+                    if k == 0:
+                        pts[kind] = [[list(c) for c in p] for p in P]
+        res[name] = dict(target_outlets=target, target_branches=nb, nulls=out, example_paths=pts)
+        msg = ", ".join(f"{k} {np.median([x['h'] for x in v if 'h' in x]) if any('h' in x for x in v) else float('nan'):.2f}"
+                        f" ({sum('h' in x for x in v)}/{len(v)}, outlets {np.median([x['outlets'] for x in v]):.0f})"
+                        for k, v in out.items())
+        print(f"{name}: target outlets {target}, junctions {nb}; {msg}", flush=True)
+        with open(out_json, "w") as f:
+            json.dump(res, f, default=float)
+    return res
+
+
 if __name__ == "__main__":
-    main(sys.argv[1:] or DELTAS)
+    if sys.argv[1:2] == ["--spread"]:
+        spread_check(sys.argv[3:] or DELTAS, sys.argv[2])
+    elif sys.argv[1:2] == ["--extra"]:
+        extra_nulls(sys.argv[3:] or DELTAS, sys.argv[2])
+    else:
+        main(sys.argv[1:] or DELTAS)
 
 
 # ------------------------------------------------------------------ figure and summary
