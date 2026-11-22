@@ -107,3 +107,24 @@ def test_semicircle_run(semi_run):
         jj = np.array([q[1] for q in path]) - 1
         assert r.land[ii[:-1], jj[:-1]].all()          # every cell but the last is land
         assert r.shoreline[ii[-1], jj[-1]]             # the path ends on the shoreline
+
+
+def test_null_model(semi_run):
+    """The random-walk null keeps the avulsion times and builds valid paths: connected,
+    on land until they end on the shoreline, moving away from the source at every step."""
+    import os
+    import sys
+    sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "paper", "signatures"))
+    from null_model import random_walk_null
+    from deltamodel.history import channel_paths
+    p, r = semi_run
+    for uniform in (False, True):
+        n = random_walk_null(p, r, seed=1, uniform_sites=uniform)
+        assert np.array_equal(n.avulsions[:, 0], r.avulsions[:, 0])
+        i0 = r.source[0]
+        for t, path in channel_paths(n):
+            a = np.array(path) - 1
+            assert np.abs(np.diff(a, axis=0)).max() == 1
+            rr = np.hypot(a[:, 0] - i0, a[:, 1])
+            assert np.all(np.diff(rr) > 0)
+            assert r.land[a[:-1, 0], a[:-1, 1]].all() and r.shoreline[a[-1, 0], a[-1, 1]]

@@ -122,6 +122,18 @@ python paper/figures.py                 # Figures 2-12, and every number quoted 
 
 The 5 km runs take 5–10 minutes each and the 10 km runs about an hour; together they need about 2 GB of disk. `paper/analysis.py` computes the statistics: channel residence time, the effect of the side walls, the compensation index of Straub et al. (2009), the reworking and channel-overlap time scales of Wickert et al. (2013), and the Hack-like scaling of distributary networks of Dong et al. (2026).
 
+## Follow-up study: what delta channel statistics record
+
+`paper/signatures/` compares the model with null models to ask which statistical signatures of delta channels record how new channels are routed (topographic steering), which follow from where avulsions occur, and which from geometry alone:
+
+```sh
+python paper/signatures/run_robustness.py                     # other initial beds, avulsion thresholds, floodplain rates
+python paper/signatures/null_model.py RUN.pkl OUT.pkl [seed] [uniform]   # random-walk nulls from a model run
+python paper/signatures/figures.py                            # figures and results.json in paper/signatures/figures/
+```
+
+The null models keep the model's avulsion times but send each new channel along a directed random walk to the shoreline, either from the model's avulsion sites or from sites chosen uniformly along the channel. `paper/signatures/metrics.py` computes the statistics: the residence-time exponent, Hack-like scaling (Dong et al. 2026), channel overlap and reworking (Wickert et al. 2013), and the compensation index (Straub et al. 2009).
+
 ## License
 
 MIT. See `LICENSE`.

@@ -36,6 +36,7 @@ class Params:
     dtprint3: float = 0.1          # interval for the sediment flux series
     I_tavg: float = 0.05           # flood intermittency
     beta: float = 1.0              # avulsion threshold: superelevation relative to flow depth
+    floodplain_fraction: float = 0.5   # floodplain deposition as a fraction of subsidence
     g: float = 9.81
     D: float = 0.0003              # grain size, m
     R: float = 1.65                # submerged specific gravity
@@ -77,7 +78,7 @@ def _consts(p: Params):
     c["S_equil"] = ((c["R"] * ((c["Qs"] / (c["alpha_sa"] * c["alpha_so"]) / c["D"] / c["B"] / np.sqrt(c["R"] * c["g"] * c["D"])) ** (1 / c["n"])
                                + c["taustar_c"])) ** ((3 + 2 * pe) / (2 + 2 * pe))) \
         * (c["alpha_r"] ** (1 / (1 + pe))) * ((c["Qw"] / c["D"] / c["B"] / np.sqrt(c["g"] * c["D"])) ** (-1 / (1 + pe)))
-    c["fine_dep"] = c["half"] * c["subside"] / c["I_tavg"]
+    c["fine_dep"] = p.floodplain_fraction * c["subside"] / c["I_tavg"]
     c["sec_yr"] = 365.0 * 24.0 * 60.0 * 60.0
     return c
 
