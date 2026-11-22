@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="assets/RiverDeltaModel_logo.webp" width="128" alt="RiverDeltaModel emblem showing a branching river delta from mountains to the sea">
+</p>
+
 # River delta model: surface processes and stratigraphy
 
 A cellular model of river delta evolution, written in Fortran by Michael J. Puma in 2006–2007, revised in 2026, and now also available as a tested Python package. It is described in the preprint
