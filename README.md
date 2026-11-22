@@ -4,19 +4,17 @@
 
 # River delta model: surface processes and stratigraphy
 
-A cellular model of river delta evolution, written in Fortran by Michael J. Puma in 2006–2007, revised in 2026, and now also available as a tested Python package. It is described in the preprint
+A computational research model of river-delta evolution, channel avulsions, sediment transport, and three-dimensional stratigraphy. This repository supports **a new study in preparation** investigating how delta geometry and boundary conditions influence channel dynamics, and how channel processes are reflected in stratigraphic patterns. The new work is distinct from the earlier preprint.
 
-> Puma, M.J., Muneepeerakul, R., Paola, C., Rinaldo, A., and Rodriguez-Iturbe, I., *On the connections between surficial processes and stratigraphy in river deltas*, arXiv:1606.04558, https://arxiv.org/abs/1606.04558
+Water and sediment enter a cellular delta plain at a single source. Channels aggrade, levees build, and avulsions establish new pathways across the delta. Backwater effects influence the flow, while the model records sediment deposits and their ages in three dimensions. New simulations compare rectangular and semicircular domains and explore channel residence time, avulsion patterns, boundary effects, and stratigraphic signatures.
 
-A revised version of the paper, with simulations rerun using the code in this repository, is in preparation. This is work in progress.
+The repository contains three main components:
 
-The model represents a delta plain as a grid of cells. Water and sediment enter at a single source and are routed through a channel; the channel aggrades, levees build, and when the channel becomes unstable it avulses and a new path is activated. Channel dynamics use a simple cellular approach that includes backwater effects, which matter in low-gradient deltas. Deposits are tracked in three dimensions, so the model records stratigraphy (deposit thickness, sediment type and age at depth) alongside the surface. The paper uses it to study how avulsion statistics change with distance from the source, how long channels occupy each part of the delta (channel residence time), and how these surface statistics are written into the stratigraphy.
+- `src/deltamodel/`: a tested Python implementation of the model, extended to support a semicircular domain with an open shoreline.
+- `paper/`: simulations, analysis, and figures for the **new research study**, including work on the statistical signatures of delta channels.
+- `fortran/`: the historical Fortran implementation, corrected and retained for reproducibility and validation.
 
-The repository has three parts:
-
-- `fortran/`: the May 2007 program, revised in 2026 to correct nine errors (listed below) found while translating it to Python.
-- `src/deltamodel/`: the Python version. It reproduces `fortran/` exactly, and adds a semicircular domain with an open shoreline.
-- `paper/`: the simulations, analysis and figures for the revised paper.
+**Historical background:** The model grew out of research initiated in 2006–2007, associated with Puma et al., [*On the connections between surficial processes and stratigraphy in river deltas*](https://arxiv.org/abs/1606.04558) (2016). That preprint remains a separate historical publication and is not being revised as part of this project.
 
 ![Bed elevation and avulsion frequency after a 710-year run](assets/delta_710yr.png)
 
@@ -42,7 +40,7 @@ res.strat_thickness, res.strat_type, res.strat_time   # 3-D stratigraphy
 
 ### Domain
 
-`Params(domain="rectangle")` (the default) is the 2007 domain: a 5 km × 7 km plain with no-flow side walls and a straight shoreline. The channel is drawn to the walls, which hold about twice their share of channel occupancy and create some of the results in the 2016 preprint. `Params(domain="semicircle", ymax=R)` gives a delta plain of radius `R` cells around a source on the straight landward edge; the channel ends wherever it reaches the shoreline ring, so no boundary steers it. Set `Qs` in proportion to the area of the plain to keep the supply per unit area the same, and start from `initial_bed(p, seed=...)`, which slopes radially.
+`Params(domain="rectangle")` (the default) is the 2007 domain: a 5 km × 7 km plain with no-flow side walls and a straight shoreline. The side walls influence channel occupancy, motivating comparisons of boundary effects in the new work. `Params(domain="semicircle", ymax=R)` gives a delta plain of radius `R` cells around a source on the straight landward edge; the channel ends wherever it reaches the shoreline ring, so no boundary steers it. Set `Qs` in proportion to the area of the plain to keep the supply per unit area the same, and start from `initial_bed(p, seed=...)`, which slopes radially.
 
 ```python
 import numpy as np
@@ -87,7 +85,7 @@ With `i_etaflag = 1` the program reads the initial bed from `eta_init.txt` inste
 
 Every column's stratigraphy adds up to the bed elevation plus the subsidence applied (14.2 m over 710 years) to within 2 × 10⁻⁸ m.
 
-## Corrections made in 2026
+## Technical history: corrections made in 2026
 
 The Python translation was first checked line by line against the 2007 program, which it reproduced exactly. That comparison turned up the following errors, corrected in both versions. Each is marked `Correction N (2026)` in `fortran/` and `_fix N` in `src/deltamodel/_kernel.py`.
 
@@ -111,9 +109,9 @@ Also changed, without effect on the results:
 - The scour check no longer reads `eta_act(0)`, and a reset loop cleared the wrong array element.
 - The visit-time series hold 100 visits per cell and could be written past their end; later visits are still counted but not stored. The stratigraphy output now writes every layer.
 
-## Revised paper
+## New research study: boundary effects and delta dynamics
 
-`paper/` reruns the simulations of the paper and makes its figures:
+`paper/` runs experiments, analyzes channel and stratigraphic behavior, and generates figures for the new manuscript in preparation:
 
 ```sh
 python paper/run_paper.py               # semicircles of radius 5 and 10 km, and the 5 x 7 and 10 x 14 km rectangles
@@ -122,7 +120,7 @@ python paper/figures.py                 # Figures 2-12, and every number quoted 
 
 The 5 km runs take 5–10 minutes each and the 10 km runs about an hour; together they need about 2 GB of disk. `paper/analysis.py` computes the statistics: channel residence time, the effect of the side walls, the compensation index of Straub et al. (2009), the reworking and channel-overlap time scales of Wickert et al. (2013), and the Hack-like scaling of distributary networks of Dong et al. (2026).
 
-## Follow-up study: what delta channel statistics record
+## Related analysis: what delta channel statistics record
 
 `paper/signatures/` compares the model with null models to ask which statistical signatures of delta channels record how new channels are routed (topographic steering), which follow from where avulsions occur, and which from geometry alone:
 
