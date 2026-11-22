@@ -1171,5 +1171,166 @@
    }
   },
   "n_deltas": 9
+ },
+ "short": {
+  "h_model_variants": {
+   "min": 0.561261071871816,
+   "max": 0.5863550134763913
+  },
+  "h_nulls": {
+   "min": 0.5337148581888915,
+   "max": 0.6139281531113481
+  },
+  "h_window": {
+   "model": {
+    "0.035": 0.5916343976251779,
+    "0.174": 0.5780563615802004,
+    "0.35": 0.5577026640480481
+   },
+   "null, same avulsion sites": {
+    "0.035": 0.6468141044719904,
+    "0.174": 0.6139281531113481,
+    "0.35": 0.5850640867702929
+   },
+   "null, sites uniform along the channel": {
+    "0.035": 0.6192116825593772,
+    "0.174": 0.5850304097250869,
+    "0.35": 0.5602824349639491
+   },
+   "rectangle": {
+    "0.035": 0.6532929542546111,
+    "0.174": 0.6431014497015486,
+    "0.35": 0.6200775485883038
+   }
+  },
+  "breaks": {
+   "Colville": {
+    "dong_h1": 1.08,
+    "dong_h2": 0.58,
+    "dong_h": 0.71,
+    "dong_break": 17.0,
+    "random_h1": 0.9259608999001357,
+    "random_h2": 0.40120581711689707,
+    "random_break": 44.40859464795727,
+    "random_break_share": 0.85,
+    "real_raster_p": 1.366663763774453e-05
+   },
+   "Lena": {
+    "dong_h1": 0.7,
+    "dong_h2": 0.53,
+    "dong_h": 0.59,
+    "dong_break": 16.0,
+    "random_h1": 0.8235391624281098,
+    "random_h2": 0.39260191817865614,
+    "random_break": 29.058131380945227,
+    "random_break_share": 0.9,
+    "real_raster_p": 8.112060132120904e-42
+   },
+   "Mossy": {
+    "dong_h1": 0.88,
+    "dong_h2": 0.32,
+    "dong_h": 0.63,
+    "dong_break": 19.0,
+    "random_h1": 1.4052350671833662,
+    "random_h2": 0.4498095040178335,
+    "random_break": 19.001451755256355,
+    "random_break_share": 0.6,
+    "real_raster_p": 3.122732799159538e-26
+   },
+   "Niger": {
+    "dong_h1": 0.74,
+    "dong_h2": 0.5,
+    "dong_h": 0.58,
+    "dong_break": 63.0,
+    "random_h1": 0.9384424961114581,
+    "random_h2": 0.3617974171417123,
+    "random_break": 57.729083155543975,
+    "random_break_share": 0.9,
+    "real_raster_p": 1.2618946449718075e-74
+   },
+   "Red": {
+    "dong_h1": 1.09,
+    "dong_h2": 0.47,
+    "dong_h": 0.53,
+    "dong_break": 48.0,
+    "random_h1": 0.9607029598064318,
+    "random_h2": 0.25256437040456564,
+    "random_break": 113.87723106849472,
+    "random_break_share": 0.75,
+    "real_raster_p": 3.159237216464021e-05
+   },
+   "Selenga": {
+    "dong_h1": 0.73,
+    "dong_h2": 0.49,
+    "dong_h": 0.57,
+    "dong_break": 22.0,
+    "random_h1": 1.0103279084292114,
+    "random_h2": 0.4222573528109039,
+    "random_break": 29.349716241410153,
+    "random_break_share": 0.65,
+    "real_raster_p": 2.207782800178861e-09
+   },
+   "Yukon": {
+    "dong_h1": 0.83,
+    "dong_h2": 0.59,
+    "dong_h": 0.61,
+    "dong_break": 4.0,
+    "random_h1": 1.0784165185616397,
+    "random_h2": 0.5432918859566105,
+    "random_break": 9.897688213744757,
+    "random_break_share": 0.85,
+    "real_raster_p": 4.49719894738388e-16
+   },
+   "Mississippi": {
+    "dong_h1": NaN,
+    "dong_h2": NaN,
+    "dong_h": 0.61,
+    "dong_break": NaN,
+    "random_h1": 1.115605214251065,
+    "random_h2": 0.4971952817582214,
+    "random_break": 11.565207819313732,
+    "random_break_share": 0.65,
+    "real_raster_p": 0.0007894493975794546
+   },
+   "Wax": {
+    "dong_h1": NaN,
+    "dong_h2": NaN,
+    "dong_h": 0.58,
+    "dong_break": NaN,
+    "random_h1": 1.1149170753938826,
+    "random_h2": 0.54765205015442,
+    "random_break": 16.203802584061823,
+    "random_break_share": 0.8125,
+    "real_raster_p": 7.80291063958076e-05
+   },
+   "model": {
+    "h1": 0.9714013299281371,
+    "h2": 0.6014175631954802,
+    "break_L_over_B": 5.013748166421179,
+    "davies_p": 1.2447379621753402e-36
+   },
+   "null, same avulsion sites": {
+    "h1": 0.7945296492498302,
+    "h2": 0.5824213826365627,
+    "break_L_over_B": 8.818549544628816,
+    "davies_p": 9.616189366682717e-80
+   },
+   "null, sites uniform along the channel": {
+    "h1": 0.8514429885700252,
+    "h2": 0.5682021902088997,
+    "break_L_over_B": 7.282846126335279,
+    "davies_p": 6.759525023753159e-230
+   }
+  },
+  "breaks_summary": {
+   "random_h1_min": 0.8235391624281098,
+   "random_h1_max": 1.4052350671833662,
+   "random_h2_min": 0.25256437040456564,
+   "random_h2_max": 0.54765205015442,
+   "random_share_min": 0.6,
+   "random_share_max": 0.9,
+   "n_composite": 7,
+   "real_raster_breaks": 9
+  }
  }
 }
