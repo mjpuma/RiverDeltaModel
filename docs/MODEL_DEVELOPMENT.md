@@ -26,31 +26,31 @@ The run loop solves channel hydraulics, calculates sediment transport, changes b
 
 The implementation uses a one-dimensional gradually varied flow formulation. The variables used in the code are
 
-$
+$$
 Fr^2=\frac{q_w^2}{gH^3},\qquad
 C_f=\frac{1}{\alpha_r^2}\left(\frac{H}{k_s}\right)^{-1/3},
-$
+$$
 
 where $k_s$ is roughness height and $\alpha_r$ is the resistance coefficient. In the code's along-channel sign convention, the depth increment is calculated using
 
-$
+$$
 \frac{dH}{dx}=\frac{S-C_f Fr^2}{1-Fr^2}.
-$
+$$
 
 The solution is stepped *upstream* from the downstream depth $H_0$ by a predictor–corrector method. With $F(H,S)=(S-C_f(H)Fr^2(H))/(1-Fr^2(H))$, the implementation is
 
-$
+$$
 H_{\rm pred}=H_k-\Delta\ell_k F(H_k,S_k),\qquad
 H_{k-1}=H_k-\frac{\Delta\ell_k}{2}
 \left[F(H_k,S_k)+F(H_{\rm pred},S_k)\right].
-$
+$$
 
 Where the backwater branch is unsuitable, the code uses the normal depth
 
-$
+$$
 H_{\rm norm}=
 \left(\frac{k_s^{1/3}q_w^2}{\alpha_r^2gS}\right)^{3/10}.
-$
+$$
 
 **Python** — [`_backwater`](../src/deltamodel/_kernel.py#L56-L90), representative implementation:
 
@@ -79,13 +79,13 @@ The normal-depth fallback and limiting checks are part of the source routine; th
 
 The code computes dimensionless Shields stress from depth and velocity:
 
-$
+$$
 \tau_*=\frac{C_f(q_w/H)^2}{RgD},
-$
+$$
 
 where $D$ is grain diameter and $R$ is submerged specific gravity. For interior channel segments, the computed stress is capped by the normal-flow stress $\tau_{*,\mathrm{norm}}$ (see source for the slope-dependent expression). Dimensionless transport is then
 
-$
+$$
 q_*=
 \begin{cases}
 \alpha_{so}\alpha_{sa}(\tau_*-\tau_{*,c})^n,
@@ -94,7 +94,7 @@ q_*=
 \end{cases}
 \qquad
 q_s=D\sqrt{RgD}\;q_*.
-$
+$$
 
 **Python** — [transport loop](../src/deltamodel/_kernel.py#L401-L417):
 
@@ -114,23 +114,23 @@ qt[k] = np.sqrt(R * g * D) * D * qstar
 
 The active-channel Exner update converts the difference between incoming and outgoing sediment transport into sediment thickness. For a channel step of length $\Delta\ell_k$,
 
-$
+$$
 \Delta\eta_{\rm sed,k}=
 \frac{\Delta t_{\rm sec}}{(1-\lambda)\Delta\ell_k}
 \,\Delta q_{s,k},
 \qquad
 \Delta\eta_k=\Delta\eta_{\rm sed,k}
 -\frac{u_{\rm sub}\Delta t}{I},
-$
+$$
 
 where $\Delta t_{\rm sec}=\Delta t\times\texttt{sec_yr}$, $u_{\rm sub}$ is the subsidence parameter, and the second term follows the effective-year convention implemented in both codes.
 
 For a nonterminal channel cell, the mixed upwind difference is
 
-$
+$$
 \Delta q_{s,k}=a_u(q_{s,k-1}-q_{s,k})
  +(1-a_u)(q_{s,k}-q_{s,k+1});
-$
+$$
 
 the terminal cell uses $q_{s,k-1}-q_{s,k}$. The source sediment supply provides the upstream boundary flux.
 
@@ -154,10 +154,10 @@ elev_temp = eta(i,j) + delta_eta(i,j)
 
 A nonnegative-bed condition constrains erosion at $\eta=0$. When this constraint is activated, the routine adjusts the downstream sediment flux consistently with the Exner difference. For $a_u\ne 1/2$, the nonterminal-cell inversion is
 
-$
+$$
 q_{s,k}=\frac{\Delta q_{s,k}-a_u q_{s,k-1}
 +(1-a_u)q_{s,k+1}}{1-2a_u}.
-$
+$$
 
 The default is full upwinding ($a_u=1$); the expression is singular for $a_u=1/2$, so that weight is not a supported choice for this constrained-flux branch.
 
@@ -165,10 +165,10 @@ The default is full upwinding ($a_u=1$); the expression is singular for $a_u=1/2
 
 Outside active channel cells and land-boundary cells, the implemented floodplain update is
 
-$
+$$
 \Delta\eta_{\rm floodplain}=
 f_{\rm dep}\Delta t-\frac{u_{\rm sub}\Delta t}{I},
-$
+$$
 
 where `fine_dep` is the fine-sediment deposition rate calculated from the model parameters. The increment updates both bed and levee elevation. Accumulated deposition is also passed to the stratigraphy bookkeeping.
 
@@ -196,11 +196,11 @@ levee(i,j) = levee(i,j) + delta_eta(i,j)
 
 At each eligible channel cell, the model compares an alternative route toward the lowest available neighboring cell with the existing downstream channel gradient. Let $(i,j)$ be the current cell, $n$ a free neighbor, and $c$ the next cell on the existing channel. The implemented condition is
 
-$
+$$
 \frac{\eta_{i,j}-\beta H_{i,j}-\eta_n}{\ell_{i,j\rightarrow n}}
 >
 \frac{\eta_{i,j}-\eta_c}{\ell_{i,j\rightarrow c}}.
-$
+$$
 
 Available neighbors are screened for domain boundaries and already occupied channel cells. A successful test initiates a new downstream channel route, after which the code checks channel depth and imposes a small positive incising slope where necessary.
 
