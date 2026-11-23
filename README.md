@@ -5,22 +5,21 @@
 # RiverDeltaModel
 **River-delta evolution, channel dynamics, and three-dimensional stratigraphy**
 
-RiverDeltaModel is a computational model for studying how river-delta channels evolve and how their surface dynamics are recorded in the subsurface. It represents sediment transport, backwater hydraulics, channel aggradation and avulsion, and the development of three-dimensional stratigraphy.
+RiverDeltaModel is a computational model for exploring how river-delta channels evolve and organize into distributary networks, and how their dynamics shape the delta plain and its stratigraphic record. It represents backwater hydraulics, sediment transport, aggradation, avulsions, and three-dimensional deposition.
 
-**The current research is exploratory.** Building on earlier work linking channel residence times and deposition patterns, the project is investigating how delta geometry, avulsion dynamics, and channel-network organization may influence the statistical structure of delta landscapes and stratigraphy.
+## Current research: what do delta-network patterns reveal about growth?
 
-## Research direction
+**Ongoing work tests which statistical properties of river-delta networks reflect formative processes, and which can arise from network geometry alone.** A particular focus is Hack-like scaling—the relationship between downstream channel length and the area nourished by distributary branches—and whether it can distinguish physically guided channel growth from random network formation.
 
-The central question is **how the movement and reorganization of delta channels translate into spatial patterns of sediment deposition—and what aspects of those processes can be inferred from the stratigraphic record.**
+An early [manuscript draft](paper/signatures/) reports three main findings:
 
-Current work is exploring:
+- **Similar scaling can emerge from different growth mechanisms.** Networks traced by the model's avulsing channel show a Hack-like exponent near 0.58, while directed random-walk networks produce comparable exponents.
+- **Comparisons with real deltas reinforce that ambiguity.** In nine mapped river-dominated deltas, both density-matched random networks and networks grown in a Laplace field can reproduce observed Hack-like exponents.
+- **Channel spacing may better distinguish growth processes.** Observed channels spread across delta plains much more evenly than random networks and resemble networks in which existing channels screen the growth field. The draft's median normalized spacing values are 2.1 for mapped networks, 1.9 for Laplacian trees, and 5.3 for random networks with loops.
 
-- **Delta geometry and boundaries:** comparing rectangular and semicircular domains to assess how confinement and shoreline geometry influence channel paths and avulsions.
-- **Channel dynamics across space and time:** examining residence times, channel reoccupation, overlap, and the spatial distribution of avulsions.
-- **Statistical signatures:** testing which network and stratigraphic patterns may be associated with topographic steering, avulsion locations, or geometry alone, using model experiments and simplified null models.
-- **Connections to observed deltas:** developing comparisons with mapped distributary networks to assess which model-derived patterns are informative beyond idealized domains.
+These are **preliminary findings from a manuscript in development**, not yet published conclusions. The broader aim is to identify network metrics that carry interpretable information about delta formation, using process-based simulations, carefully matched null models, and observed channel networks. The work also examines how network density, delta boundaries, and breaks in scaling affect interpretation.
 
-These are **research questions and directions, not established findings**. Initial simulations and analyses are available in [`paper/`](paper/) and [`paper/signatures/`](paper/signatures/); their interpretation and robustness remain under investigation. The model is intended as a relatively simple framework for exploring processes and statistical relationships, rather than a detailed representation of any particular delta.
+The relevant numerical experiments, null models, network comparisons, and figure-generation scripts are in [`paper/`](paper/) and [`paper/signatures/`](paper/signatures/). Earlier model development also investigated channel residence time and its connection to stratigraphic architecture; this remains part of the model's scientific foundation.
 
 ## Model capabilities
 
