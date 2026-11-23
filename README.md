@@ -85,29 +85,9 @@ With `i_etaflag = 1` the program reads the initial bed from `eta_init.txt` inste
 
 Every column's stratigraphy adds up to the bed elevation plus the subsidence applied (14.2 m over 710 years) to within 2 × 10⁻⁸ m.
 
-## Technical history: corrections made in 2026
+## Mathematical formulation and developer documentation
 
-The Python translation was first checked line by line against the 2007 program, which it reproduced exactly. That comparison turned up the following errors, corrected in both versions. Each is marked `Correction N (2026)` in `fortran/` and `_fix N` in `src/deltamodel/_kernel.py`.
-
-1. **Sediment flux when the bed is held at zero.** When erosion would take a cell below zero elevation, the flux passed downstream is recomputed from the Exner equation, but the inversion omitted the factor 1/(1 − 2 a_u). With full upwinding (a_u = 1) the flux had the wrong sign.
-2. **Slope of flat reaches of a new channel.** A reach that would be flat or reversed is given the slope `S_incise`, but the bed drop used the cell length of a direction left over from another step, not of the step being made.
-3. **Length in the avulsion criterion.** The criterion compares the slope to the lowest free neighbour with the slope along the channel. The channel slope used the length to whichever active neighbour `slope5` found last, which need not be the next channel cell (a diagonal step has length √2·a).
-4. **Stratigraphy at the end of the run.** Deposition since the last avulsion was never added, and the summary of channel and overbank deposits looped over as many layers as there were avulsions rather than the layers each column has.
-5. **Initial incision recorded as deposition.** After the first channel was cut into the bed, the reference elevation for the next stratigraphy update was not reset, so the cut was later recorded as negative deposition.
-6. **Backwater corrector.** The predictor–corrector for flow depth used the friction coefficient from the old depth in the corrector step instead of the predicted depth.
-7. **Channel cells with no free neighbour.** When all five neighbours of a channel cell are already channel or outside the grid, `maxloc` still returns a direction. The avulsion test then used that blocked cell (outside the array at the edge of the grid), and a new channel path would step into it. The program no longer tests for an avulsion from such a cell, and a new path continues straight downstream.
-8. **Erosion below the initial deposit.** When erosion removed every layer above the initial deposit, the remainder was dropped, so the stratigraphic column no longer added up to the bed elevation.
-9. **Channel incision after an avulsion.** Cutting the new channel removed a full channel depth from the stratigraphy instead of the thickness actually cut.
-
-Corrections 4, 5, 8 and 9 concern only the record of the stratigraphy, not the evolution of the bed; before them, the top of a stratigraphic column could differ from the bed by several metres.
-
-Also changed, without effect on the results:
-
-- All constants are double precision; several were written as single-precision literals (`0.0001`, `0.4`, …).
-- The two routines specific to the Silverfrost FTN95 compiler (`date_time_seed@`, `random()`) are replaced by standard Fortran (`random_seed`, `random_number`).
-- `bed_elev.f95` used unit 12, which is also `levout.txt`.
-- The scour check no longer reads `eta_act(0)`, and a reset loop cleared the wrong array element.
-- The visit-time series hold 100 visits per cell and could be written past their end; later visits are still counted but not stored. The stratigraphy output now writes every layer.
+For the governing equations, numerical methods, and side-by-side Python and Fortran implementation references, see the [Model Development Guide](docs/MODEL_DEVELOPMENT.md). It also records the model's implementation refinements and reproducibility history.
 
 ## New research study: boundary effects and delta dynamics
 
