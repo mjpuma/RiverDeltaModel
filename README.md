@@ -11,7 +11,7 @@ RiverDeltaModel is a computational model for exploring how river-delta channels 
 
 **Ongoing work tests which statistical properties of river-delta networks reflect formative processes, and which can arise from network geometry alone.** A particular focus is Hack-like scaling—the relationship between downstream channel length and the area nourished by distributary branches—and whether it can distinguish physically guided channel growth from random network formation.
 
-An early [manuscript draft](paper/signatures/) reports three main findings:
+Preliminary analyses, supported by the code in [`paper/signatures/`](paper/signatures/), suggest three findings:
 
 - **Similar scaling can emerge from different growth mechanisms.** Networks traced by the model's avulsing channel show a Hack-like exponent near 0.58, while directed random-walk networks produce comparable exponents.
 - **Comparisons with real deltas reinforce that ambiguity.** In nine mapped river-dominated deltas, both density-matched random networks and networks grown in a Laplace field can reproduce observed Hack-like exponents.
