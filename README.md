@@ -5,35 +5,22 @@
 # RiverDeltaModel
 **River-delta evolution, channel dynamics, and three-dimensional stratigraphy**
 
-RiverDeltaModel is a computational research model for investigating how sediment transport, channel aggradation, avulsions, and delta geometry shape river-delta landscapes and their stratigraphic records. **Current research** uses the model to examine boundary effects, channel mobility, and the statistical signatures of distributary networks.
+RiverDeltaModel is a computational model for studying how river-delta channels evolve and how their surface dynamics are recorded in the subsurface. It represents sediment transport, backwater hydraulics, channel aggradation and avulsion, and the development of three-dimensional stratigraphy.
 
-## Current research
+**The current research is exploratory.** Building on earlier work linking channel residence times and deposition patterns, the project is investigating how delta geometry, avulsion dynamics, and channel-network organization may influence the statistical structure of delta landscapes and stratigraphy.
 
-Two complementary analyses are in development.
+## Research direction
 
-### Delta geometry, boundary effects, and channel dynamics
+The central question is **how the movement and reorganization of delta channels translate into spatial patterns of sediment deposition—and what aspects of those processes can be inferred from the stratigraphic record.**
 
-The current study investigates how the shape of a delta plain and its boundary conditions affect the evolving channel network. Simulations compare **rectangular and semicircular domains** to assess channel residence time, avulsion patterns, lateral confinement, and the preservation of channel behavior in stratigraphy.
+Current work is exploring:
 
-The analysis includes channel residence times, compensation, channel overlap and reworking, and Hack-like scaling of distributary networks. Simulation workflows and figures are in [\`paper/\`](paper/):
+- **Delta geometry and boundaries:** comparing rectangular and semicircular domains to assess how confinement and shoreline geometry influence channel paths and avulsions.
+- **Channel dynamics across space and time:** examining residence times, channel reoccupation, overlap, and the spatial distribution of avulsions.
+- **Statistical signatures:** testing which network and stratigraphic patterns may be associated with topographic steering, avulsion locations, or geometry alone, using model experiments and simplified null models.
+- **Connections to observed deltas:** developing comparisons with mapped distributary networks to assess which model-derived patterns are informative beyond idealized domains.
 
-\`\`\`sh
-python paper/run_paper.py
-python paper/figures.py
-\`\`\`
-
-### Statistical signatures of delta channels
-
-A related analysis asks which observed channel-network statistics reveal **topographic steering**, which reflect **avulsion location**, and which can emerge from **domain geometry alone**.
-
-The [\`paper/signatures/\`](paper/signatures/) workflow compares simulated delta networks with directed random-walk null models and evaluates network patterns in nine mapped river-dominated deltas. It includes robustness experiments with varying initial beds, avulsion thresholds, and floodplain deposition rates. External observational datasets required for the real-delta comparisons are described in the \`real_deltas.py\` module.
-
-\`\`\`sh
-python paper/signatures/run_robustness.py
-python paper/signatures/figures.py
-\`\`\`
-
-Both analyses are ongoing research; the repository contains the associated computational methods, experiments, and analysis scripts.
+These are **research questions and directions, not established findings**. Initial simulations and analyses are available in [`paper/`](paper/) and [`paper/signatures/`](paper/signatures/); their interpretation and robustness remain under investigation. The model is intended as a relatively simple framework for exploring processes and statistical relationships, rather than a detailed representation of any particular delta.
 
 ## Model capabilities
 
@@ -118,9 +105,7 @@ The Python and Fortran implementations have been compared using matched initial 
 
 ## Background and citation
 
-RiverDeltaModel builds on earlier work on the relationship between surface processes and delta stratigraphy: Puma et al., *On the connections between surficial processes and stratigraphy in river deltas* ([2016 preprint](https://arxiv.org/abs/1606.04558)). The current research extends that modeling foundation to new questions about delta geometry, network behavior, and stratigraphic signatures.
-
-For repository citation metadata, see [\`CITATION.cff\`](CITATION.cff).
+The research builds on Puma et al., *On the connections between surficial processes and stratigraphy in river deltas* ([2016 preprint](https://arxiv.org/abs/1606.04558)), which examined channel residence time and its relationship to stratigraphic patterns. See [`CITATION.cff`](CITATION.cff) for repository citation metadata.
 
 ## License
 
